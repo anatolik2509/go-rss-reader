@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS rss_source (
+    id   BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    url  TEXT NOT NULL
+);
