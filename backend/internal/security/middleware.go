@@ -19,9 +19,11 @@ func (middleware *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			log.Printf("error checking session cookie %v", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return 
 		}
 		if !ok {
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return 
 		}
 		next.ServeHTTP(w, r)
 	})

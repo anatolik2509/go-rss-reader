@@ -11,6 +11,12 @@ type rssSourceCreateDto struct {
 	Url  string
 }
 
+type rssSourceResponseDto struct {
+	Id   uint64 `json:"id"`
+	Name string `json:"name"`
+	Url  string `json:"url"`
+}
+
 type handler struct {
 	store Store
 }
@@ -41,8 +47,12 @@ func (h *handler) GetSources(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err), http.StatusInternalServerError)
 		return
 	}
+	var response []rssSourceResponseDto
+	for _, source := range sources {
+		response = append(response, rssSourceResponseDto{source.Id, source.Name, source.Url})
+	}
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(sources)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err), http.StatusInternalServerError)
 		return

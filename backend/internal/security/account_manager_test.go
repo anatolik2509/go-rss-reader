@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -8,16 +9,16 @@ import (
 )
 
 type MockAccountRepository struct {
-	saveFunc func(AccountDto) error
-	getFunc  func(string) (AccountDto, error)
+	saveFunc func(context.Context, AccountDto) (id uint64, err error)
+	getFunc  func(context.Context, string) (AccountDto, error)
 }
 
-func (r *MockAccountRepository) Save(acc AccountDto) error {
-	return r.saveFunc(acc)
+func (r *MockAccountRepository) Save(ctx context.Context, acc AccountDto) (id uint64, err error) {
+	return r.saveFunc(ctx, acc)
 }
 
-func (r *MockAccountRepository) Get(login string) (AccountDto, error) {
-	return r.getFunc(login)
+func (r *MockAccountRepository) Find(ctx context.Context, login string) (AccountDto, error) {
+	return r.getFunc(ctx, login)
 }
 
 var passwordHasher = BcryptPasswordHasher{}
@@ -25,16 +26,16 @@ var passwordHasher = BcryptPasswordHasher{}
 func TestAddNewAccount(t *testing.T) {
 	var savedAccount AccountDto
 	mockRepository := &MockAccountRepository{
-		saveFunc: func(ad AccountDto) error {
+		saveFunc: func(ctx context.Context, ad AccountDto) (id uint64, err error) {
 			savedAccount = ad
-			return nil
+			return 1, nil
 		},
 	}
 	accountManager := &PasswordAccountManager{mockRepository, passwordHasher}
 	testAccount := AccountDetails{login: "admin", password: "admin"}
-	accountManager.AddAccount(testAccount)
-	assert.Equal(t, testAccount.login, savedAccount.login)
-	ok, err := passwordHasher.VerifyHash(testAccount.password, savedAccount.passwordHash)
+	accountManager.AddAccount(t.Context(), testAccount)
+	assert.Equal(t, testAccount.login, savedAccount.Login)
+	ok, err := passwordHasher.VerifyHash(testAccount.password, savedAccount.PasswordHash)
 	assert.Nil(t, err)
 	assert.True(t, ok)
 }
@@ -43,26 +44,27 @@ func TestSuccessfulAccountVerifying(t *testing.T) {
 	savedPasswordHash, _ := passwordHasher.GetHash("admin")
 	savedAccount := AccountDto{1, "admin", savedPasswordHash}
 	mockRepository := &MockAccountRepository{
-		getFunc: func(s string) (AccountDto, error) {
+		getFunc: func(ctx context.Context, s string) (AccountDto, error) {
 			return savedAccount, nil
 		},
 	}
 	accountManager := &PasswordAccountManager{mockRepository, passwordHasher}
 	testAccount := AccountDetails{login: "admin", password: "admin"}
-	ok, err := accountManager.VerifyAccount(testAccount)
+	id, ok, err := accountManager.VerifyAccount(t.Context(), testAccount)
 	assert.True(t, ok)
 	assert.Nil(t, err)
+	assert.Equal(t, 1, id)
 }
 
 func TestFailedAddingAccount(t *testing.T) {
 	mockRepository := &MockAccountRepository{
-		saveFunc: func(ad AccountDto) error {
-			return errors.New("unknown error")
+		saveFunc: func(ctx context.Context, ad AccountDto) (id uint64, err error) {
+			return 0, errors.New("unknown error")
 		},
 	}
 	accountManager := &PasswordAccountManager{mockRepository, passwordHasher}
 	testAccount := AccountDetails{login: "admin", password: "admin"}
-	err := accountManager.AddAccount(testAccount)
+	_, err := accountManager.AddAccount(t.Context(), testAccount)
 	assert.Error(t, err)
 }
 
@@ -70,13 +72,13 @@ func TestIncorrectPassword(t *testing.T) {
 	savedPasswordHash, _ := passwordHasher.GetHash("admin")
 	savedAccount := AccountDto{1, "admin", savedPasswordHash}
 	mockRepository := &MockAccountRepository{
-		getFunc: func(s string) (AccountDto, error) {
+		getFunc: func(ctx context.Context, s string) (AccountDto, error) {
 			return savedAccount, nil
 		},
 	}
 	accountManager := &PasswordAccountManager{mockRepository, passwordHasher}
 	testAccount := AccountDetails{login: "admin", password: "qwerty123"}
-	ok, err := accountManager.VerifyAccount(testAccount)
+	_, ok, err := accountManager.VerifyAccount(t.Context(), testAccount)
 	assert.False(t, ok)
 	assert.Nil(t, err)
 }

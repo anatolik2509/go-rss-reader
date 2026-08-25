@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sync/atomic"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -72,6 +73,17 @@ func (s *PostgresStore) GetSources(ctx context.Context) (sources []rssSource, er
 		return nil, fmt.Errorf("error while querying sources: %w", err)
 	}
 	defer rows.Close()
+	sources, err = rowsToSources(sources, rows)
+	if err != nil {
+		return
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error while querying sources: %w", err)
+	}
+	return
+}
+
+func rowsToSources(sources []rssSource, rows pgx.Rows) ([]rssSource, error) {
 	sources = make([]rssSource, 0)
 	for rows.Next() {
 		var s rssSource
@@ -80,8 +92,5 @@ func (s *PostgresStore) GetSources(ctx context.Context) (sources []rssSource, er
 		}
 		sources = append(sources, s)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error while querying sources: %w", err)
-	}
-	return
+	return sources, nil
 }

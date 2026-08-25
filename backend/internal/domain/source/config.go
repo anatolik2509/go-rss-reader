@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func MustConfigureSourceRouter(pool *pgxpool.Pool) chi.Router {
+func MustConfigureRouter(pool *pgxpool.Pool) chi.Router {
 	store := NewPostgresStore(pool)
 	handler := &handler{store: store}
 	router := chi.NewRouter()

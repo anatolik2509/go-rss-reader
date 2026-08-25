@@ -1,12 +1,14 @@
 package security
 
 import (
+	"encoding/gob"
 	"fmt"
 	"net/http"
-	"rss-reader-backend/internal/config"
+	"time"
 
-	"github.com/boj/redistore/v2"
-	"github.com/gorilla/sessions"
+	"github.com/alexedwards/scs/goredisstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -15,7 +17,11 @@ const (
 )
 
 type UserSession struct {
-	userId uint64
+	UserId uint64
+}
+
+func init() {
+	gob.Register(UserSession{})
 }
 
 type SessionManager interface {
@@ -23,45 +29,38 @@ type SessionManager interface {
 	CheckSession(r *http.Request, w http.ResponseWriter) (session UserSession, ok bool, err error)
 }
 
-type GorillaSessionManager struct {
-	store sessions.Store
+type ScsSessionManager struct {
+	scsManager *scs.SessionManager
 }
 
-func NewGorillaSessionManager(store sessions.Store) *GorillaSessionManager {
-	return &GorillaSessionManager{store: store}
+func NewAppSessionManager(manager *scs.SessionManager) *ScsSessionManager {
+	return &ScsSessionManager{manager}
 }
 
-func (m *GorillaSessionManager) CreateNewSession(session UserSession, r *http.Request, w http.ResponseWriter) error {
-	gorillaSession, err := m.store.Get(r, SessionCookie)
-	if err != nil {
-		return fmt.Errorf("creating session: %w", err)
+func (m *ScsSessionManager) CreateNewSession(session UserSession, r *http.Request, w http.ResponseWriter) error {
+	if err := m.scsManager.RenewToken(r.Context()); err != nil {
+		return fmt.Errorf("creating new session: %w", err)
 	}
-	gorillaSession.Values[SessionObjectKey] = session
-	err = m.store.Save(r, w, gorillaSession)
-	if err != nil {
-		return fmt.Errorf("creating session: %w", err)
-	}
+	m.scsManager.Put(r.Context(), SessionObjectKey, session)
 	return nil
 }
 
-func (m *GorillaSessionManager) CheckSession(r *http.Request, w http.ResponseWriter) (session UserSession, ok bool, err error) {
-	gorillaSession, err := m.store.Get(r, SessionCookie)
-	if err != nil {
-		return UserSession{}, false, fmt.Errorf("failed to parse db config: %w", err)
-	}
-	session = gorillaSession.Values[SessionObjectKey].(UserSession)
-	ok = !gorillaSession.IsNew
+func (m *ScsSessionManager) CheckSession(r *http.Request, w http.ResponseWriter) (session UserSession, ok bool, err error) {
+	session, ok = m.scsManager.Get(r.Context(), SessionObjectKey).(UserSession)
 	return
 }
 
-func NewGorillaSessionStore(redisConfig config.RedisConfig, secretKey string) (sessions.Store, error) {
-	store, err := redistore.NewStore(
-		redistore.KeysFromStrings(secretKey),
-		redistore.WithAddress("tcp", redisConfig.Host),
-		redistore.WithAuth(redisConfig.User, redisConfig.Password),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating gorilla session store: %w", err)
-	}
-	return store, nil
+func NewScsRedisSessionStore(redisClient *redis.Client) scs.Store {
+	return goredisstore.New(redisClient)
+}
+
+func NewScsSessionManager(store scs.Store) *scs.SessionManager {
+	scsManager := scs.New()
+	scsManager.Store = store
+	scsManager.Cookie.Name = SessionCookie
+	scsManager.Cookie.HttpOnly = true
+    scsManager.Cookie.Secure = true
+	scsManager.Cookie.Persist = true
+	scsManager.IdleTimeout = 60 * time.Hour
+	return scsManager
 }
