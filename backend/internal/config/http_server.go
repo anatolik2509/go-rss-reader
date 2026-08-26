@@ -16,7 +16,7 @@ func MustConfigureRootRouter(app *App) chi.Router {
 	router.Use(app.sessions.scsSessionManager.LoadAndSave)
 	
 	router.Mount("/auth", app.sessions.router)
-	sourceRouter := source.MustConfigureRouter(app.db)
+	sourceRouter := source.MustConfigureRouter(app.db, app.logger)
 	router.Route("/api", func(r chi.Router) {
 		r.Use(app.sessions.authMiddleware.RequireAuth)
 		r.Mount("/sources", sourceRouter)

@@ -4,8 +4,9 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 
@@ -19,8 +20,9 @@ type App struct {
 	config *Config
 	db     *pgxpool.Pool
 	redis  *redis.Client
-	router chi.Router
+	logger *slog.Logger
 	sessions *Sessions
+	router chi.Router
 }
 
 func MustCreateNewApp(migrationsFS embed.FS) (*App) {
@@ -40,6 +42,8 @@ func MustCreateNewApp(migrationsFS embed.FS) (*App) {
 	if err != nil {
 		panic(err)
 	}
+	app.logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	slog.SetDefault(app.logger)
 	app.sessions = MustConfigureSessions(app)
 	app.router = MustConfigureRootRouter(app)
 	return app
@@ -57,7 +61,7 @@ func (app *App) StartApp() {
 	defer srv.Shutdown(ctx)
 	fmt.Println("Listening on port 8080")
 	go func() {
-		log.Fatal(srv.ListenAndServe())
+		app.logger.Error(srv.ListenAndServe().Error())
 	}()
 	<-ctx.Done()
 	fmt.Println("")

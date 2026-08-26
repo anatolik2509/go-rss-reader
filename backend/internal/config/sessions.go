@@ -23,7 +23,7 @@ func MustConfigureSessions(app *App) *Sessions {
 	scsSessionStore := security.NewScsRedisSessionStore(app.redis)
 	sessions.scsSessionManager = security.NewScsSessionManager(scsSessionStore)
 	sessions.sessionManager = security.NewAppSessionManager(sessions.scsSessionManager)
-	sessions.authMiddleware = security.NewAuthMiddleware(&sessions.sessionManager)
-	sessions.router = security.MustConfigureRouter(app.db, app.redis, sessions.accountManager, sessions.sessionManager)
+	sessions.authMiddleware = security.NewAuthMiddleware(sessions.sessionManager, app.logger)
+	sessions.router = security.MustConfigureRouter(app.db, app.redis, sessions.accountManager, sessions.sessionManager, app.logger)
 	return sessions
 }
