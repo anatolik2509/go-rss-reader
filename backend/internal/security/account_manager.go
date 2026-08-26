@@ -50,7 +50,6 @@ func (m *PasswordAccountManager) VerifyAccount(ctx context.Context, account Acco
 	if err != nil {
 		return 0, false, fmt.Errorf("verifying account: %w", err)
 	}
-	fmt.Printf("%s - %s\n", account.password, accountDto.Login)
 	ok, err = m.passwordHasher.VerifyHash(account.password, accountDto.PasswordHash)
 	if err != nil {
 		return 0, false, fmt.Errorf("verifying account: %w", err)
