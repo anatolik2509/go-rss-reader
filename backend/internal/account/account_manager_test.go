@@ -1,4 +1,4 @@
-package security
+package account
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func TestSuccessfulAccountVerifying(t *testing.T) {
 	id, ok, err := accountManager.VerifyAccount(t.Context(), testAccount)
 	assert.True(t, ok)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, id)
+	assert.Equal(t, uint64(1), id)
 }
 
 func TestFailedAddingAccount(t *testing.T) {

@@ -1,14 +1,14 @@
-package security
+package account
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgerrcode"
 )
 
 type AccountDto struct {
@@ -22,12 +22,13 @@ type AccountRepository interface {
 	Find(ctx context.Context, login string) (AccountDto, error)
 }
 
-const(
+const (
 	CreateAccountQuery = "INSERT INTO account(login, password_hash) VALUES ($1, $2) RETURNING id;"
-	FindAccountQuery = "SELECT id, login, password_hash FROM account WHERE login = $1;"
+	FindAccountQuery   = "SELECT id, login, password_hash FROM account WHERE login = $1;"
 )
+
 type PgAccountRepository struct {
-	pool *pgxpool.Pool	
+	pool *pgxpool.Pool
 }
 
 func NewPgAccountRepository(pool *pgxpool.Pool) AccountRepository {

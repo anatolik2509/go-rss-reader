@@ -1,26 +1,31 @@
-package security
+package account
 
 import (
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"rss-reader-backend/internal/session"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type SignUpRequest struct {
-	Login string
+	Login    string
 	Password string
 }
 
 type SignInRequest struct {
-	Login string
+	Login    string
 	Password string
 }
 
-type HttpHandler struct{
+type HttpHandler struct {
 	accountManager AccountManager
-	sessionManager SessionManager
-	logger *slog.Logger
+	sessionManager session.Manager
+	logger         *slog.Logger
 }
 
 func (h *HttpHandler) SignUp(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +42,7 @@ func (h *HttpHandler) SignUp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unknown error", http.StatusInternalServerError)
 		return
 	}
-	var session UserSession = UserSession{UserId: id}
+	var session session.UserData = session.UserData{UserId: id}
 	err = h.sessionManager.CreateNewSession(session, r, w)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "Processing SignUp request failed", "error", err)
@@ -62,7 +67,7 @@ func (h *HttpHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Login failed", http.StatusUnauthorized)
 		return
 	}
-	var session UserSession = UserSession{UserId: id}
+	var session session.UserData = session.UserData{UserId: id}
 	err = h.sessionManager.CreateNewSession(session, r, w)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "Processing SignIn request failed", "error", err)
@@ -73,7 +78,7 @@ func (h *HttpHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	http.NoBody.WriteTo(w)
 }
 
-func NewHttpHandler(accountManager AccountManager, sessionManager SessionManager, logger *slog.Logger) *HttpHandler {
+func NewHttpHandler(accountManager AccountManager, sessionManager session.Manager, logger *slog.Logger) *HttpHandler {
 	return &HttpHandler{
 		accountManager,
 		sessionManager,
@@ -81,3 +86,10 @@ func NewHttpHandler(accountManager AccountManager, sessionManager SessionManager
 	}
 }
 
+func MustConfigureRouter(pool *pgxpool.Pool, redisClient *redis.Client, accountManager AccountManager, sessionManager session.Manager, logger *slog.Logger) chi.Router {
+	httpHandler := NewHttpHandler(accountManager, sessionManager, logger)
+	router := chi.NewRouter()
+	router.Post("/signUp", httpHandler.SignUp)
+	router.Post("/signIn", httpHandler.SignIn)
+	return router
+}

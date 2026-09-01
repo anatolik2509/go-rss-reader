@@ -1,7 +1,7 @@
 package config
 
 import (
-	"rss-reader-backend/internal/domain/source"
+	"rss-reader-backend/internal/rsssource"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,8 +13,8 @@ func MustConfigureRootRouter(app *App) chi.Router {
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Heartbeat("/ping"))
-	router.Use(app.sessions.scsSessionManager.LoadAndSave)
-	
+	router.Use(app.sessions.sessionMiddleware.CreateSessions)
+
 	router.Mount("/auth", app.sessions.router)
 	sourceRouter := source.MustConfigureRouter(app.db, app.logger)
 	router.Route("/api", func(r chi.Router) {

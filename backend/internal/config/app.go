@@ -17,15 +17,15 @@ import (
 
 type App struct {
 	migrationsFS embed.FS
-	config *Config
-	db     *pgxpool.Pool
-	redis  *redis.Client
-	logger *slog.Logger
-	sessions *Sessions
-	router chi.Router
+	config       *Config
+	db           *pgxpool.Pool
+	redis        *redis.Client
+	logger       *slog.Logger
+	sessions     *Sessions
+	router       chi.Router
 }
 
-func MustCreateNewApp(migrationsFS embed.FS) (*App) {
+func MustCreateNewApp(migrationsFS embed.FS) *App {
 	app := &App{}
 	app.migrationsFS = migrationsFS
 	var err error

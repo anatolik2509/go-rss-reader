@@ -18,7 +18,7 @@ type rssSourceResponseDto struct {
 }
 
 type handler struct {
-	store Store
+	store  Store
 	logger *slog.Logger
 }
 

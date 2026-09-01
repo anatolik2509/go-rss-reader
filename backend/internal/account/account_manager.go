@@ -1,4 +1,4 @@
-package security
+package account
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var(
+var (
 	ErrSuchLoginAlreadyExists = errors.New("Such login already exists")
-	ErrNoSuchAccount = errors.New("Account with given login not found")
+	ErrNoSuchAccount          = errors.New("Account with given login not found")
 )
 
 type AccountDetails struct {
@@ -61,10 +61,9 @@ func (m *PasswordAccountManager) VerifyAccount(ctx context.Context, account Acco
 func NewPasswordAccountManager(accountRepository AccountRepository, passwordHasher PasswordHasher) AccountManager {
 	return &PasswordAccountManager{
 		accountRepository: accountRepository,
-		passwordHasher: passwordHasher,
+		passwordHasher:    passwordHasher,
 	}
 }
-
 
 type BcryptPasswordHasher struct{}
 
