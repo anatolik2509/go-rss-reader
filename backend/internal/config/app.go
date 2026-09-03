@@ -1,37 +1,79 @@
 package config
 
 import (
+	"context"
+	"embed"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
-	config *Config
-	db     *pgxpool.Pool
-	redis  *redis.Client
-	router chi.Router
+	migrationsFS embed.FS
+	config       *Config
+	db           *pgxpool.Pool
+	redis        *redis.Client
+	logger       *slog.Logger
+	sessions     *Sessions
+	router       chi.Router
 }
 
-func NewApp() (*App, error) {
-	config, err := LoadConfig("config.yaml")
+func MustCreateNewApp(migrationsFS embed.FS) *App {
+	app := &App{}
+	app.migrationsFS = migrationsFS
+	var err error
+	app.config, err = LoadConfig("config.yaml")
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	db, err := NewPgxPool(config.Database)
+	doMigrations(app)
+	app.db, err = NewPgxPool(app.config.Database)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	redis, err := NewRedisClient(config.Redis)
+	app.redis, err = NewRedisClient(app.config.Redis)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	router := MustConfigureRootRouter()
-	app := &App{
-		config: config,
-		db:     db,
-		redis:  redis,
-		router: router,
+	app.logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	slog.SetDefault(app.logger)
+	app.sessions = MustConfigureSessions(app)
+	app.router = MustConfigureRootRouter(app)
+	return app
+}
+
+func (app *App) StartApp() {
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	fmt.Println("Starting server...")
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: app.router,
 	}
-	return app, nil
+	defer srv.Shutdown(ctx)
+	fmt.Println("Listening on port 8080")
+	go func() {
+		app.logger.Error(srv.ListenAndServe().Error())
+	}()
+	<-ctx.Done()
+	fmt.Println("")
+	fmt.Println("Goodbye")
+}
+
+func doMigrations(app *App) {
+	migrator := MustGetNewMigrator(app.migrationsFS)
+	db, err := NewMigrationDb(app.config.Database)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	migrator.ApplyMigrations(db)
 }
