@@ -8,6 +8,6 @@ CREATE TABLE
 CREATE TABLE
     IF NOT EXISTS account (
         id BIGSERIAL PRIMARY KEY,
-        login VARCHAR(255) NOT NULL UNIQUE,
+        Login VARCHAR(255) NOT NULL UNIQUE,
         password_hash VARCHAR(60) NOT NULL
     );

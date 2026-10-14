@@ -2,12 +2,12 @@ package main
 
 import (
 	"embed"
-	"rss-reader-backend/internal/config"
+	"rss-reader-backend/internal/bootstrap"
 )
 
 //go:embed migrations/*.sql
 var MigrationsFS embed.FS
 
 func main() {
-	config.MustCreateNewApp(MigrationsFS).StartApp()
+	bootstrap.MustCreateNewApp(MigrationsFS).StartApp()
 }

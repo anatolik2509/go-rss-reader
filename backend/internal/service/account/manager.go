@@ -9,35 +9,46 @@ import (
 )
 
 var (
-	ErrSuchLoginAlreadyExists = errors.New("Such login already exists")
-	ErrNoSuchAccount          = errors.New("Account with given login not found")
+	ErrSuchLoginAlreadyExists = errors.New("Such Login already exists")
+	ErrNoSuchAccount          = errors.New("Account with given Login not found")
 )
 
-type AccountDetails struct {
-	login    string
-	password string
+type Request struct {
+	Login    string
+	Password string
 }
 
-type AccountManager interface {
-	AddAccount(context.Context, AccountDetails) (id uint64, err error)
-	VerifyAccount(context.Context, AccountDetails) (id uint64, ok bool, err error)
+type Model struct {
+	Id           uint64
+	Login        string
+	PasswordHash string
+}
+
+type Repository interface {
+	Save(context.Context, Model) (id uint64, err error)
+	Find(ctx context.Context, login string) (Model, error)
+}
+
+type Manager interface {
+	AddAccount(context.Context, Request) (id uint64, err error)
+	VerifyAccount(context.Context, Request) (id uint64, ok bool, err error)
 }
 type PasswordHasher interface {
 	GetHash(password string) (hash string, err error)
 	VerifyHash(password string, hash string) (ok bool, err error)
 }
 
-type PasswordAccountManager struct {
-	accountRepository AccountRepository
+type PasswordManager struct {
+	accountRepository Repository
 	passwordHasher    PasswordHasher
 }
 
-func (m *PasswordAccountManager) AddAccount(ctx context.Context, account AccountDetails) (id uint64, err error) {
-	passwordHash, err := m.passwordHasher.GetHash(account.password)
+func (m *PasswordManager) AddAccount(ctx context.Context, account Request) (id uint64, err error) {
+	passwordHash, err := m.passwordHasher.GetHash(account.Password)
 	if err != nil {
 		return 0, fmt.Errorf("creating new account: %w", err)
 	}
-	accountDto := AccountDto{Login: account.login, PasswordHash: passwordHash}
+	accountDto := Model{Login: account.Login, PasswordHash: passwordHash}
 	id, err = m.accountRepository.Save(ctx, accountDto)
 	if err != nil {
 		return 0, fmt.Errorf("creating new account: %w", err)
@@ -45,12 +56,12 @@ func (m *PasswordAccountManager) AddAccount(ctx context.Context, account Account
 	return id, nil
 }
 
-func (m *PasswordAccountManager) VerifyAccount(ctx context.Context, account AccountDetails) (id uint64, ok bool, err error) {
-	accountDto, err := m.accountRepository.Find(ctx, account.login)
+func (m *PasswordManager) VerifyAccount(ctx context.Context, account Request) (id uint64, ok bool, err error) {
+	accountDto, err := m.accountRepository.Find(ctx, account.Login)
 	if err != nil {
 		return 0, false, fmt.Errorf("verifying account: %w", err)
 	}
-	ok, err = m.passwordHasher.VerifyHash(account.password, accountDto.PasswordHash)
+	ok, err = m.passwordHasher.VerifyHash(account.Password, accountDto.PasswordHash)
 	if err != nil {
 		return 0, false, fmt.Errorf("verifying account: %w", err)
 	}
@@ -58,8 +69,8 @@ func (m *PasswordAccountManager) VerifyAccount(ctx context.Context, account Acco
 	return
 }
 
-func NewPasswordAccountManager(accountRepository AccountRepository, passwordHasher PasswordHasher) AccountManager {
-	return &PasswordAccountManager{
+func NewPasswordAccountManager(accountRepository Repository, passwordHasher PasswordHasher) Manager {
+	return &PasswordManager{
 		accountRepository: accountRepository,
 		passwordHasher:    passwordHasher,
 	}
