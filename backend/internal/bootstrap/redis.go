@@ -1,6 +1,5 @@
-package config
+package bootstrap
 
-// todo возможно надо убрать
 import (
 	"context"
 
